@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# bin/compile
+
+set -e
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+ENV_DIR=$3
+BUILDPACK_DIR=$(cd $(dirname $0); cd ..; pwd)
+
+# Set proper encoding to avoid UTF-8 issues
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+echo "-----> Installing DuckDB"
+
+# Define DuckDB version
+DUCKDB_VERSION="1.2.2"
+
+# Create vendor directory structure
+VENDOR_DIR="$BUILD_DIR/vendor"
+DUCKDB_DIR="$VENDOR_DIR/duckdb"
+mkdir -p $DUCKDB_DIR/lib
+mkdir -p $DUCKDB_DIR/include
+
+# Download and extract DuckDB
+DUCKDB_URL="https://github.com/duckdb/duckdb/releases/download/v${DUCKDB_VERSION}/libduckdb-linux-amd64.zip"
+DUCKDB_CACHE_DIR="$CACHE_DIR/duckdb-${DUCKDB_VERSION}"
+
+if [ ! -d "$DUCKDB_CACHE_DIR" ]; then
+    echo "-----> Downloading DuckDB v${DUCKDB_VERSION}"
+    mkdir -p $DUCKDB_CACHE_DIR
+    cd $DUCKDB_CACHE_DIR
+    curl -L -o duckdb.zip $DUCKDB_URL
+    unzip -q duckdb.zip
+else
+    echo "-----> Using cached DuckDB v${DUCKDB_VERSION}"
+fi
+
+# Copy DuckDB files to proper locations
+echo "-----> Installing DuckDB to vendor directory"
+if [ -f "$DUCKDB_CACHE_DIR/libduckdb.so" ]; then
+    cp "$DUCKDB_CACHE_DIR/libduckdb.so" "$DUCKDB_DIR/lib/"
+fi
+if [ -f "$DUCKDB_CACHE_DIR/duckdb.h" ]; then
+    cp "$DUCKDB_CACHE_DIR/duckdb.h" "$DUCKDB_DIR/include/"
+fi
+if [ -f "$DUCKDB_CACHE_DIR/duckdb.hpp" ]; then
+    cp "$DUCKDB_CACHE_DIR/duckdb.hpp" "$DUCKDB_DIR/include/"
+fi
+
+# Create symlinks for library discovery
+ln -sf "$DUCKDB_DIR/lib/libduckdb.so" "$VENDOR_DIR/libduckdb.so"
+
+# Create profile.d script to set up environment variables
+mkdir -p $BUILD_DIR/.profile.d
+cat > $BUILD_DIR/.profile.d/duckdb.sh << 'EOF'
+export LIBRARY_PATH="${LIBRARY_PATH}:$HOME/vendor/duckdb/lib:$HOME/vendor"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$HOME/vendor/duckdb/lib:$HOME/vendor"
+export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:$HOME/vendor/duckdb/lib:$HOME/vendor"
+export CPATH="${CPATH}:$HOME/vendor/duckdb/include"
+export C_INCLUDE_PATH="${C_INCLUDE_PATH}:$HOME/vendor/duckdb/include"
+export CPLUS_INCLUDE_PATH="${CPLUS_INCLUDE_PATH}:$HOME/vendor/duckdb/include"
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+EOF
+
+# Set environment variables for build time (using absolute paths)
+export LIBRARY_PATH="${LIBRARY_PATH}:$DUCKDB_DIR/lib:$VENDOR_DIR"
+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$DUCKDB_DIR/lib:$VENDOR_DIR"
+export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:$DUCKDB_DIR/lib:$VENDOR_DIR"
+export CPATH="${CPATH}:$DUCKDB_DIR/include"
+export C_INCLUDE_PATH="${C_INCLUDE_PATH}:$DUCKDB_DIR/include"
+export CPLUS_INCLUDE_PATH="${CPLUS_INCLUDE_PATH}:$DUCKDB_DIR/include"
+
+# Create environment variables for subsequent buildpacks
+mkdir -p $BUILDPACK_DIR
+echo "export LIBRARY_PATH=\"\${LIBRARY_PATH}:$DUCKDB_DIR/lib:$VENDOR_DIR\"" >> $BUILDPACK_DIR/export
+echo "export LD_LIBRARY_PATH=\"\${LD_LIBRARY_PATH}:$DUCKDB_DIR/lib:$VENDOR_DIR\"" >> $BUILDPACK_DIR/export
+echo "export PKG_CONFIG_PATH=\"\${PKG_CONFIG_PATH}:$DUCKDB_DIR/lib:$VENDOR_DIR\"" >> $BUILDPACK_DIR/export
+echo "export CPATH=\"\${CPATH}:$DUCKDB_DIR/include\"" >> $BUILDPACK_DIR/export
+echo "export C_INCLUDE_PATH=\"\${C_INCLUDE_PATH}:$DUCKDB_DIR/include\"" >> $BUILDPACK_DIR/export
+echo "export CPLUS_INCLUDE_PATH=\"\${CPLUS_INCLUDE_PATH}:$DUCKDB_DIR/include\"" >> $BUILDPACK_DIR/export
+echo "export LC_ALL=C.UTF-8" >> $BUILDPACK_DIR/export
+echo "export LANG=C.UTF-8" >> $BUILDPACK_DIR/export
+
+echo "-----> DuckDB installation complete"

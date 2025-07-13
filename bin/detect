@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# bin/detect
+
+BUILD_DIR=$1
+
+# Set proper encoding to avoid UTF-8 issues
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+# Check if Gemfile contains duckdb gem
+if [ -f "$BUILD_DIR/Gemfile" ]; then
+    if grep -q "duckdb" "$BUILD_DIR/Gemfile" 2>/dev/null; then
+        echo "DuckDB"
+        exit 0
+    fi
+fi
+
+# Check if gems.rb contains duckdb gem
+if [ -f "$BUILD_DIR/gems.rb" ]; then
+    if grep -q "duckdb" "$BUILD_DIR/gems.rb" 2>/dev/null; then
+        echo "DuckDB"
+        exit 0
+    fi
+fi
+
+# Check if Gemfile.lock contains duckdb
+if [ -f "$BUILD_DIR/Gemfile.lock" ]; then
+    if grep -q "duckdb" "$BUILD_DIR/Gemfile.lock" 2>/dev/null; then
+        echo "DuckDB"
+        exit 0
+    fi
+fi
+
+exit 1

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# bin/release
+
+# Set proper encoding to avoid UTF-8 issues
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+
+cat << EOF
+---
+config_vars:
+  LIBRARY_PATH: \$LIBRARY_PATH:\$HOME/vendor/duckdb/lib:\$HOME/vendor
+  LD_LIBRARY_PATH: \$LD_LIBRARY_PATH:\$HOME/vendor/duckdb/lib:\$HOME/vendor
+  PKG_CONFIG_PATH: \$PKG_CONFIG_PATH:\$HOME/vendor/duckdb/lib:\$HOME/vendor
+  CPATH: \$CPATH:\$HOME/vendor/duckdb/include
+  C_INCLUDE_PATH: \$C_INCLUDE_PATH:\$HOME/vendor/duckdb/include
+  CPLUS_INCLUDE_PATH: \$CPLUS_INCLUDE_PATH:\$HOME/vendor/duckdb/include
+  LC_ALL: C.UTF-8
+  LANG: C.UTF-8
+EOF
